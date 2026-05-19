@@ -7,4 +7,5 @@ variable "aws_region" {
 variable "ssh_key_name" {
   description = "Name of existing EC2 key pair"
   type        = string
+  default     = "my-key"
 }
