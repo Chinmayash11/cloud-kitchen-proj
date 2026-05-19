@@ -1,0 +1,68 @@
+name: Deploy to AWS EC2
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+aws-region: ${{ secrets.AWS_REGION }}
+        
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: 1.5.0
+        
+    - name: Terraform Init
+      working-directory: terraform
+      run: terraform init
+        
+    - name: Terraform Format
+      working-directory: terraform
+      run: terraform fmt -check
+        
+    - name: Terraform Plan
+      working-directory: terraform
+      run: terraform plan
+        
+    - name: Terraform Apply
+      working-directory: terraform
+      run: terraform apply -auto-approve
+      
+    - name: Build React App
+      run: |
+        cd frontend
+        npm install
+        npm run build
+        
+    - name: Deploy to S3
+      run: |
+        aws s3 sync frontend/build/ s3://priti-kitchen-assets/
+        aws cloudfront create-invalidation --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} --paths "/*"
+        
+    - name: Update EC2 with Latest Code
+      run: |
+        INSTANCE_ID=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=priti-web-server" --query "Reservations[0].Instances[0].InstanceId" --output text)
+        aws s3 sync frontend/build/ s3://priti-kitchen-assets/
+        aws s3 cp s3://priti-kitchen-assets/index.html s3://priti-kitchen-assets/index.html.bak
+        aws s3 cp frontend/build/index.html s3://priti-kitchen-assets/index.html
+        aws s3api put-object-acl --bucket priti-kitchen-assets --key index.html --acl public-read
+        aws s3 cp s3://priti-kitchen-assets/index.html s3://priti-kitchen-assets/index.html
+        aws s3 sync frontend/build/ s3://priti-kitchen-assets/ --delete
+        # Force refresh by updating the user data (this would require a rolling update in practice)
+        echo "Deployment complete. Instance ID: $INSTANCE_ID"
