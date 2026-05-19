@@ -19,11 +19,8 @@ data "aws_ami" "ubuntu" {
 }
 
 resource "aws_vpc" "main" {
-  cidr_block           = "10.0.0.0/16"
-  enable_dns_support   = true
-  enable_dns_hostnames = true
-
-  tags = { Name = "priti-kitchen-vpc" }
+  cidr_block = "10.0.0.0/16"
+  tags       = { Name = "priti-kitchen-vpc" }
 }
 
 resource "aws_subnet" "public" {
@@ -99,7 +96,7 @@ resource "aws_iam_role" "ec2_role" {
   name = "priti-ec2-role"
 
   assume_role_policy = jsonencode({
-    Version = "2012-10-17"
+    Version = "2012-10-17",
     Statement = [{
       Effect    = "Allow"
       Principal = { Service = "ec2.amazonaws.com" }
@@ -132,7 +129,7 @@ resource "aws_ecr_repository" "backend" {
 
 resource "aws_instance" "backend" {
   ami                    = data.aws_ami.ubuntu.id
-  instance_type          = "t3.medium"
+  instance_type          = "t3.micro"
   subnet_id              = aws_subnet.public.id
   vpc_security_group_ids = [aws_security_group.web_sg.id]
   iam_instance_profile   = aws_iam_instance_profile.ec2_profile.name
@@ -150,54 +147,4 @@ resource "aws_instance" "backend" {
   EOF
 
   tags = { Name = "priti-backend-ec2" }
-}
-
-resource "aws_s3_bucket" "frontend" {
-  bucket = "priti-kitchen-assets"
-
-  tags = { Name = "priti-frontend-assets" }
-}
-
-resource "aws_s3_bucket_ownership_controls" "frontend" {
-  bucket = aws_s3_bucket.frontend.id
-
-  rule {
-    object_ownership = "BucketOwnerEnforced"
-  }
-}
-
-resource "aws_s3_bucket_public_access_block" "frontend" {
-  bucket = aws_s3_bucket.frontend.id
-
-  block_public_acls       = true
-  block_public_policy     = true
-  ignore_public_acls      = true
-  restrict_public_buckets = true
-}
-
-resource "aws_s3_bucket_policy" "frontend" {
-  bucket = aws_s3_bucket.frontend.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Sid       = "PublicReadGetObject"
-      Effect    = "Allow"
-      Principal = "*"
-      Action    = "s3:GetObject"
-      Resource  = "${aws_s3_bucket.frontend.arn}/*"
-    }]
-  })
-}
-
-output "backend_public_ip" {
-  value = aws_instance.backend.public_ip
-}
-
-output "s3_bucket_url" {
-  value = "http://${aws_s3_bucket.frontend.bucket}.s3-website-${var.aws_region}.amazonaws.com"
-}
-
-output "ecr_repo_url" {
-  value = aws_ecr_repository.backend.repository_url
 }
