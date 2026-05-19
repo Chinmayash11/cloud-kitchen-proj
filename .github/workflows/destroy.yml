@@ -7,7 +7,7 @@ on:
         description: 'Type "destroy" to confirm'
         required: true
         default: ''
-        
+
 permissions:
   id-token: write
   contents: read
@@ -16,32 +16,25 @@ jobs:
   destroy:
     runs-on: ubuntu-latest
     environment: destruction
-    
+
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Validate confirmation
-      run: |
-        if [[ "${{ github.event.inputs.confirm }}" != "destroy" ]]; then
-          echo "Confirmation must be exactly 'destroy'"
-          exit 1
-        fi
-        
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v4
-      with:
-        role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/GitHubActionsRole
-        aws-region: us-east-1
-        
-    - name: Setup Terraform
-      uses: hashicorp/setup-terraform@v3
-      with:
-        terraform_version: 1.5.0
-        
-    - name: Terraform Init
-      working-directory: terraform
-      run: terraform init
-        
-    - name: Terraform Destroy
-      working-directory: terraform
-      run: terraform destroy -auto-approve -var="account_id=${{ secrets.AWS_ACCOUNT_ID }}" -var="github_repo=${{ github.repository }}"
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.5.0
+
+      - name: Terraform Init
+        working-directory: terraform
+        run: terraform init
+
+      - name: Terraform Destroy
+        working-directory: terraform
+        run: terraform destroy -auto-approve -var="ssh_key_name=${{ secrets.SSH_KEY_NAME }}"
