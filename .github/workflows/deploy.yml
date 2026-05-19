@@ -55,15 +55,3 @@ jobs:
       - name: Deploy to S3
         run: |
           aws s3 sync frontend/build/ s3://priti-kitchen-assets/ --delete
-          aws cloudfront create-invalidation \
-            --distribution-id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} \
-            --paths "/*"
-
-      - name: Update EC2 with Latest Code
-        run: |
-          INSTANCE_ID=$(aws ec2 describe-instances \
-            --filters "Name=tag:Name,Values=priti-web-server" \
-            --query "Reservations[0].Instances[0].InstanceId" \
-            --output text)
-
-          echo "Deployment complete. Instance ID: $INSTANCE_ID"

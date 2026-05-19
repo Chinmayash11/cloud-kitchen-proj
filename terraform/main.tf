@@ -141,7 +141,7 @@ resource "aws_instance" "backend" {
   user_data = <<-EOF
     #!/bin/bash
     apt-get update -y
-    apt-get install -y docker.io
+    apt-get install -y docker.io awscli
     systemctl start docker
     systemctl enable docker
     aws ecr get-login-password --region ${var.aws_region} | docker login --username AWS --password-stdin ${aws_ecr_repository.backend.repository_url}
@@ -154,29 +154,9 @@ resource "aws_instance" "backend" {
 
 resource "aws_s3_bucket" "frontend" {
   bucket = "priti-kitchen-assets"
+  acl    = "public-read"
 
   tags = { Name = "priti-frontend-assets" }
-}
-
-resource "aws_s3_bucket_public_access_block" "frontend" {
-  bucket = aws_s3_bucket.frontend.id
-
-  block_public_acls       = false
-  block_public_policy     = false
-  ignore_public_acls      = false
-  restrict_public_buckets = false
-}
-
-resource "aws_s3_bucket_website_configuration" "frontend" {
-  bucket = aws_s3_bucket.frontend.id
-
-  index_document {
-    suffix = "index.html"
-  }
-
-  error_document {
-    key = "index.html"
-  }
 }
 
 resource "aws_s3_bucket_policy" "frontend" {
@@ -199,7 +179,7 @@ output "backend_public_ip" {
 }
 
 output "s3_bucket_url" {
-  value = aws_s3_bucket_website_configuration.frontend.website_endpoint
+  value = "http://${aws_s3_bucket.frontend.bucket}.s3-website-${var.aws_region}.amazonaws.com"
 }
 
 output "ecr_repo_url" {
